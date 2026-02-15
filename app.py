@@ -181,11 +181,15 @@ def get_summary(session_id):
         return jsonify({'error': f'Failed to get summary: {str(e)}'}), 500
 
 
-@app.route('/api/clean/manual', methods=['POST', 'OPTIONS'])  # Added OPTIONS
+@app.route('/api/clean/manual', methods=['POST', 'OPTIONS'])
 def manual_clean():
     """Apply manual cleaning"""
     if request.method == 'OPTIONS':
-        return '', 204
+        response = jsonify({'status': 'ok'})
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response, 200
         
     try:
         data = request.get_json()
