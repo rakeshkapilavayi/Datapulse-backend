@@ -1,8 +1,6 @@
 """
 Updated Insights Generator using the new google.genai package
 """
-from google import genai
-from google.genai import types
 import pandas as pd
 import numpy as np
 from scipy import stats
