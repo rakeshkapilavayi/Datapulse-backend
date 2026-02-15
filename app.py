@@ -38,6 +38,18 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
+# ============================================
+# CRITICAL FIX: Add after_request for CORS
+# ============================================
+@app.after_request
+def after_request(response):
+    """Ensure CORS headers are present on all responses"""
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    response.headers['Access-Control-Max-Age'] = '3600'
+    return response
+
 # Configuration from environment variables
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_UPLOAD_SIZE', 104857600))  # 100MB
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -76,9 +88,12 @@ def health_check():
     })
 
 
-@app.route('/api/upload', methods=['POST'])
+@app.route('/api/upload', methods=['POST', 'OPTIONS'])  # Added OPTIONS
 def upload_file():
     """Upload and process dataset - UPDATED to store summary"""
+    if request.method == 'OPTIONS':  # Handle preflight
+        return '', 204
+        
     try:
         # Validate request
         if 'file' not in request.files:
@@ -146,9 +161,12 @@ def upload_file():
         logger.error(traceback.format_exc())
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
-@app.route('/api/summary/<session_id>', methods=['GET'])
+@app.route('/api/summary/<session_id>', methods=['GET', 'OPTIONS'])  # Added OPTIONS
 def get_summary(session_id):
     """Get dataset summary"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         if session_id not in session_data:
             return jsonify({'error': 'Session not found'}), 404
@@ -163,9 +181,12 @@ def get_summary(session_id):
         return jsonify({'error': f'Failed to get summary: {str(e)}'}), 500
 
 
-@app.route('/api/clean/manual', methods=['POST'])
+@app.route('/api/clean/manual', methods=['POST', 'OPTIONS'])  # Added OPTIONS
 def manual_clean():
     """Apply manual cleaning"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         data = request.get_json()
         
@@ -200,9 +221,12 @@ def manual_clean():
         return jsonify({'error': f'Manual cleaning failed: {str(e)}'}), 500
 
 
-@app.route('/api/clean/auto', methods=['POST'])
+@app.route('/api/clean/auto', methods=['POST', 'OPTIONS'])  # Added OPTIONS
 def auto_clean():
     """Apply automated cleaning"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         data = request.get_json()
         
@@ -237,9 +261,12 @@ def auto_clean():
         return jsonify({'error': f'Auto cleaning failed: {str(e)}'}), 500
 
 
-@app.route('/api/visualizations/<session_id>', methods=['GET'])
+@app.route('/api/visualizations/<session_id>', methods=['GET', 'OPTIONS'])
 def get_visualizations(session_id):
     """Get all visualizations"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         if session_id not in session_data:
             return jsonify({'error': 'Session not found'}), 404
@@ -256,9 +283,12 @@ def get_visualizations(session_id):
         return jsonify({'error': f'Failed to create visualizations: {str(e)}'}), 500
 
 
-@app.route('/api/outliers/<session_id>', methods=['GET'])
+@app.route('/api/outliers/<session_id>', methods=['GET', 'OPTIONS'])
 def get_outliers(session_id):
     """Get outlier information with column values for box plots"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         if session_id not in session_data:
             return jsonify({'error': 'Session not found'}), 404
@@ -282,9 +312,12 @@ def get_outliers(session_id):
         return jsonify({'error': f'Failed to detect outliers: {str(e)}'}), 500
 
 
-@app.route('/api/outliers/treat', methods=['POST'])
+@app.route('/api/outliers/treat', methods=['POST', 'OPTIONS'])
 def treat_outliers():
     """Treat outliers"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         data = request.get_json()
         
@@ -323,9 +356,12 @@ def treat_outliers():
         return jsonify({'error': f'Failed to treat outliers: {str(e)}'}), 500
 
 
-@app.route('/api/ml/train', methods=['POST'])
+@app.route('/api/ml/train', methods=['POST', 'OPTIONS'])
 def train_model():
     """Train machine learning model"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         data = request.get_json()
         
@@ -383,9 +419,12 @@ def train_model():
         return jsonify({'error': f'Model training failed: {str(e)}'}), 500
 
 
-@app.route('/api/ml/predict', methods=['POST'])
+@app.route('/api/ml/predict', methods=['POST', 'OPTIONS'])
 def predict():
     """Make predictions with trained model"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         data = request.get_json()
         
@@ -425,9 +464,12 @@ def predict():
         return jsonify({'error': f'Prediction failed: {str(e)}'}), 500
 
 
-@app.route('/api/insights/<session_id>', methods=['GET'])
+@app.route('/api/insights/<session_id>', methods=['GET', 'OPTIONS'])
 def get_insights(session_id):
     """Generate insights for the dataset - FIXED with better error handling"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         insight_type = request.args.get('type', 'raw')
         logger.info(f"Insights request: session={session_id}, type={insight_type}")
@@ -511,9 +553,12 @@ def get_insights(session_id):
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 
-@app.route('/api/download/<session_id>', methods=['GET'])
+@app.route('/api/download/<session_id>', methods=['GET', 'OPTIONS'])
 def download_data(session_id):
     """Download cleaned dataset"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         if session_id not in session_data:
             return jsonify({'error': 'Session not found'}), 404
@@ -538,9 +583,12 @@ def download_data(session_id):
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
 
-@app.route('/api/download/model/<session_id>', methods=['GET'])
+@app.route('/api/download/model/<session_id>', methods=['GET', 'OPTIONS'])
 def download_model(session_id):
     """Download trained model"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         if session_id not in session_data:
             return jsonify({'error': 'Session not found'}), 404
@@ -562,9 +610,12 @@ def download_model(session_id):
         return jsonify({'error': f'Model download failed: {str(e)}'}), 500
 
 
-@app.route('/api/notebook/execute', methods=['POST'])
+@app.route('/api/notebook/execute', methods=['POST', 'OPTIONS'])
 def execute_notebook_cell():
     """Execute notebook cell code with support for secondary dataset"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         data = request.get_json()
         
@@ -613,9 +664,12 @@ def internal_error(error):
     logger.error(f"Internal server error: {str(error)}")
     return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/api/visualizations/<session_id>/custom', methods=['POST'])
+@app.route('/api/visualizations/<session_id>/custom', methods=['POST', 'OPTIONS'])
 def create_custom_visualization(session_id):
     """Create custom visualization based on user selection"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         if session_id not in session_data:
             return jsonify({'error': 'Session not found'}), 404
@@ -643,9 +697,12 @@ def create_custom_visualization(session_id):
         return jsonify({'error': f'Failed to create custom chart: {str(e)}'}), 500
 
 
-@app.route('/api/outliers/<session_id>/boxplot/<column>', methods=['GET'])
+@app.route('/api/outliers/<session_id>/boxplot/<column>', methods=['GET', 'OPTIONS'])
 def get_boxplot(session_id, column):
     """Get box plot for a specific column"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         if session_id not in session_data:
             return jsonify({'error': 'Session not found'}), 404
@@ -681,9 +738,12 @@ def get_boxplot(session_id, column):
         return jsonify({'error': f'Failed to create box plot: {str(e)}'}), 500
 
 
-@app.route('/api/upload_secondary', methods=['POST'])
+@app.route('/api/upload_secondary', methods=['POST', 'OPTIONS'])
 def upload_secondary_dataset():
     """Upload a secondary dataset for merge/concat operations"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400
@@ -719,85 +779,14 @@ def upload_secondary_dataset():
     except Exception as e:
         logger.error(f"Secondary upload error: {str(e)}")
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-    
-
-# Add this to your app.py Flask routes
-
-@app.route('/api/ml/train', methods=['POST'])
-def train_ml_model():
-    """Train a machine learning model with custom parameters"""
-    try:
-        data = request.json
-        session_id = data.get('session_id')
-        task_type = data.get('task_type')
-        model_type = data.get('model_type')
-        target_column = data.get('target_column')
-        test_size = data.get('test_size', 0.2)  # Default 20%
-        tune_params = data.get('tune_params', False)
-        
-        if not all([session_id, task_type, model_type, target_column]):
-            return jsonify({'error': 'Missing required parameters'}), 400
-        
-        # Validate test_size
-        test_size = float(test_size)
-        if not (0.1 <= test_size <= 0.9):
-            return jsonify({'error': 'test_size must be between 0.1 and 0.9'}), 400
-        
-        # Get dataset
-        if session_id not in session_data:
-            return jsonify({'error': 'Session not found'}), 404
-        
-        df = session_data[session_id]['cleaned_df']
-        
-        # Train model
-        ml_engine = MLEngine()
-        pipeline, report, cm, cm_fig, features, label_encoder = ml_engine.train_model(
-            df=df,
-            target_column=target_column,
-            task_type=task_type,
-            model_type=model_type,
-            test_size=test_size,
-            tune_params=tune_params
-        )
-        
-        # Save model
-        model_filename = f"model_{session_id}_{int(time.time())}.pkl"
-        model_path = os.path.join(app.config['MODELS_FOLDER'], model_filename)
-        
-        model_data = {
-            'pipeline': pipeline,
-            'features': features,
-            'label_encoder': label_encoder,
-            'task_type': task_type,
-            'model_type': model_type,
-            'target_column': target_column
-        }
-        
-        with open(model_path, 'wb') as f:
-            pickle.dump(model_data, f)
-        
-        # Store in session
-        session_data[session_id]['model'] = model_data
-        session_data[session_id]['model_filename'] = model_filename
-        
-        # Prepare response
-        response = {
-            'report': report,
-            'model_filename': model_filename,
-            'confusion_matrix_fig': cm_fig.to_json() if cm_fig else None
-        }
-        
-        return jsonify(response), 200
-        
-    except Exception as e:
-        logger.error(f"ML training error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
 
 
-# Also add an endpoint to get suitable columns for target selection
-@app.route('/api/ml/suitable-columns/<session_id>', methods=['GET'])
+@app.route('/api/ml/suitable-columns/<session_id>', methods=['GET', 'OPTIONS'])
 def get_suitable_columns(session_id):
     """Get columns suitable for classification or regression"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     try:
         task_type = request.args.get('task_type', 'classification')
         
