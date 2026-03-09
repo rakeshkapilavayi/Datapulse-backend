@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class MLEngine:
     """Handles all machine learning operations"""
     
-    def train_model(self, df, target_column, task_type, model_type, tune_params=False):
+    def train_model(self, df, target_column, task_type, model_type, test_size=0.2, tune_params=False):
         """Train a machine learning model"""
         try:
             # Preprocess data
@@ -36,7 +36,7 @@ class MLEngine:
             pipeline = self._create_pipeline(task_type, model_type, categorical_cols, numerical_cols, X)
             
             # Split data
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
             
             # Tune hyperparameters if enabled
             if tune_params:
@@ -251,9 +251,15 @@ class MLEngine:
                     'Importance': model.feature_importances_
                 }).sort_values(by='Importance', ascending=False)
             elif hasattr(model, 'coef_'):
+                coef = model.coef_
+                if len(coef.shape) > 1:
+                    # Multi-class: use mean of absolute coefficients
+                    coef = np.abs(coef).mean(axis=0)
+                else:
+                    coef = np.abs(coef)
                 importances = pd.DataFrame({
                     'Feature': feature_names,
-                    'Importance': np.abs(model.coef_)
+                    'Importance': coef
                 }).sort_values(by='Importance', ascending=False)
             else:
                 return None
@@ -264,8 +270,8 @@ class MLEngine:
             logger.warning(f"Feature importance extraction failed: {str(e)}")
             return None
     
-    def predict(self, model, input_data, features, label_encoder=None):
-        """Make prediction"""
+    def predict(self, model, input_data, features, label_encoder=None, task_type='classification'):
+        """Make prediction with probability if classification"""
         try:
             # Convert input to DataFrame
             if isinstance(input_data, dict):
@@ -279,11 +285,21 @@ class MLEngine:
             # Predict
             prediction = model.predict(input_df)
             
+            result = {}
+            
             # Decode if classification
             if label_encoder:
                 prediction = label_encoder.inverse_transform(prediction)
             
-            return prediction.tolist()
+            result['prediction'] = prediction.tolist()
+            
+            # Add probabilities for classification
+            if task_type == 'classification' and hasattr(model, 'predict_proba'):
+                proba = model.predict_proba(input_df)[0]
+                classes = label_encoder.classes_ if label_encoder else model.classes_
+                result['probability'] = {str(cls): float(prob) for cls, prob in zip(classes, proba)}
+            
+            return result
             
         except Exception as e:
             logger.error(f"Prediction error: {str(e)}")
