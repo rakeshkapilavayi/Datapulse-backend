@@ -5,20 +5,20 @@ werkzeug==3.0.1
 gunicorn==21.2.0
 python-dotenv==1.0.1
 
-# Data Processing - Using versions with pre-built wheels
-pandas==2.1.0
-numpy==1.24.3
-scipy==1.11.4
+# Data Processing - Using stable versions with binary wheels
+pandas>=2.0.0,<2.3.0
+numpy>=1.23.0,<2.0.0
+scipy>=1.10.0,<1.13.0
 openpyxl==3.1.2
 
-# Machine Learning - Compatible versions
-scikit-learn==1.3.2
-xgboost==2.0.3
+# Machine Learning
+scikit-learn>=1.3.0,<1.5.0
+xgboost>=2.0.0,<3.0.0
 
 # Visualization
 plotly==5.20.0
-matplotlib==3.8.0
-seaborn==0.13.0
+matplotlib>=3.7.0,<4.0.0
+seaborn>=0.12.0,<0.14.0
 
 # AI/LLM
 google-generativeai==0.8.3
@@ -27,6 +27,3 @@ google-genai==0.2.2
 # Document Generation for Reports
 python-docx==1.1.0
 reportlab==4.1.0
-
-# Optional: PDF conversion (requires LibreOffice/MS Word - commented out for deployment)
-# docx2pdf==0.1.8
