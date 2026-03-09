@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: datapulse-backend
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers=1 --timeout=120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PORT
+        value: 5000
+      - key: FLASK_DEBUG
+        value: False
+      - key: MAX_UPLOAD_SIZE
+        value: 104857600
