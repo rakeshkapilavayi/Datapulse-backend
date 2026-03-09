@@ -12,7 +12,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.style import WD_STYLE_TYPE
 import json
 import logging
-from docx2pdf import convert
+# REMOVED: from docx2pdf import convert - Not needed, using ReportLab instead
 import matplotlib.pyplot as plt
 import seaborn as sns
 import base64
@@ -66,11 +66,13 @@ class MLReportGenerator:
             
             reports = {'docx': docx_path}
             
-            # Convert to PDF if requested
+            # Convert to PDF if requested - Use ReportLab instead of docx2pdf
             if output_format in ['pdf', 'both']:
                 try:
+                    from pdf_generator import PDFReportGenerator
                     pdf_path = docx_path.replace('.docx', '.pdf')
-                    convert(docx_path, pdf_path)
+                    pdf_gen = PDFReportGenerator()
+                    pdf_gen.create_pdf_report(session_data, pdf_path)
                     reports['pdf'] = pdf_path
                     logger.info(f"PDF report saved: {pdf_path}")
                 except Exception as e:
