@@ -34,7 +34,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {
+
+# ✅ FIXED: was r"/api/*" which missed /clean/*, /visualizations/*, /outliers/* etc.
+# Now covers ALL routes with r"/*"
+CORS(app, resources={r"/*": {
     "origins": [
         "https://datapulsee.vercel.app",
         "http://localhost:3000",
@@ -235,8 +238,8 @@ def upload_file():
             'filepath':            filepath,
             'summary':             summary,
             'created_at':          datetime.now().isoformat(),
-            'cleaning_operations': [],  # manual cleaning log
-            'report_outliers':     [],  # outlier treatment log
+            'cleaning_operations': [],
+            'report_outliers':     [],
         }
 
         logger.info(f"File uploaded: {filename}, Session: {session_id}, Shape: {df.shape}")
@@ -333,7 +336,6 @@ def manual_clean():
         cleaned_df = data_processor.manual_cleaning(df, missing_actions, remove_duplicates)
         session_data[session_id]['cleaned_df'] = cleaned_df
 
-        # Track each per-column missing-value action
         for col, method in missing_actions.items():
             rows_affected = int(df[col].isna().sum()) if col in df.columns else 0
             track_cleaning_operation(session_id, 'handle_missing', {
@@ -342,7 +344,6 @@ def manual_clean():
                 'rows_affected': rows_affected,
             })
 
-        # Track duplicate removal
         if remove_duplicates:
             dup_count = int(df.duplicated().sum())
             track_cleaning_operation(session_id, 'remove_duplicates', {
@@ -380,7 +381,7 @@ def auto_clean():
         cleaned_df, report = data_processor.auto_clean(df)
 
         session_data[session_id]['cleaned_df']      = cleaned_df
-        session_data[session_id]['cleaning_report'] = report   # saved for report
+        session_data[session_id]['cleaning_report'] = report
 
         logger.info(f"Auto cleaning applied for session {session_id}")
 
@@ -450,7 +451,6 @@ def treat_outliers():
 
         session_data[session_id]['cleaned_df'] = treated_df
 
-        # Track outlier treatment
         track_outlier_treatment(session_id, column or 'all columns', method, {
             'count': report.get('treated_count') or report.get('outliers_treated', '?'),
         })
@@ -577,7 +577,6 @@ def train_model():
             tune_params=tune_params
         )
 
-        # Persist model to disk
         model_filename = f"model_{session_id}_{int(time.time())}.pkl"
         model_path     = os.path.join(app.config['MODELS_FOLDER'], model_filename)
 
@@ -595,7 +594,6 @@ def train_model():
         with open(model_path, 'wb') as f:
             pickle.dump(model_data, f)
 
-        # Store in session (also used by report builder)
         session_data[session_id]['model']          = model_data
         session_data[session_id]['model_filename'] = model_filename
         session_data[session_id]['ml_report']      = report
@@ -645,7 +643,6 @@ def predict():
         task_type     = model_data.get('task_type', 'classification')
         session_df    = session.get('cleaned_df')
 
-        # Convert input types to match original dataframe dtypes
         converted_input = {}
         for feature in features:
             value = input_data.get(feature)
@@ -669,7 +666,6 @@ def predict():
         model_obj = model_data.get('pipeline') or model_data.get('model')
         result    = ml_engine.predict(model_obj, converted_input, features, label_encoder, task_type)
 
-        # Track prediction for the report
         session_data[session_id]['report_prediction'] = {
             'inputs':    converted_input,
             'result':    result,
@@ -752,7 +748,6 @@ def get_insights(session_id):
 
         if insight_type == 'raw':
             raw = insights_engine.generate_structured_insights(df, summary)
-            # Cache insights for the report
             session_data[session_id]['report_insights'] = raw
             return jsonify(raw), 200
 
@@ -839,17 +834,6 @@ def download_model(session_id):
 
 @app.route('/api/report/save-context', methods=['POST'])
 def save_report_context():
-    """
-    Optional: frontend can push extra context (insights, prediction)
-    into the session so the report picks it up.
-
-    Body (JSON):
-    {
-        "session_id": "...",
-        "insights":   { "key_statistics": [...], "data_quality": [...], ... },
-        "prediction": { "input": {...}, "result": {...} }
-    }
-    """
     try:
         data = request.get_json()
         if not data:
